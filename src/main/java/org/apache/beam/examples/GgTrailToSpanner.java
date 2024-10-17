@@ -112,10 +112,10 @@ public class GgTrailToSpanner {
     Pipeline p = Pipeline.create(options);
 
     PCollectionTuple pTuple =
-        // p.apply(
-                // "Read JSON pubsub",
-                // PubsubIO.readStrings().fromSubscription(options.getSubscriptionsName()))
-            p.apply(Create.of(mockJson))
+        p.apply(
+                "Read JSON pubsub",
+                PubsubIO.readStrings().fromSubscription(options.getSubscriptionsName()))
+            // p.apply(Create.of(mockJson))
             .apply(
                 "Convert JSON object",
                 ParDo.of(new JsonToMutation())
