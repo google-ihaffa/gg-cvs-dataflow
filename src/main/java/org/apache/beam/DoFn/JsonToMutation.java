@@ -151,19 +151,17 @@ public class JsonToMutation extends DoFn<String, Mutation> {
     if (prescriptionFillObject.has("FILL_VERSION")) {
       mutationBuilder.set("fill_version").to(prescriptionFillObject.getLong("FILL_VERSION"));
     }
-    if (prescriptionFillObject.has("IS_ALLIGNMENT_FILL")) {
-      mutationBuilder
-          .set("is_allignment_fill")
-          .to(prescriptionFillObject.getString("IS_ALLIGNMENT_FILL"));
+    if (prescriptionFillObject.has("IS_ALLIGNMENT_FILL") && !prescriptionFillObject.isNull("IS_ALLIGNMENT_FILL")) {
+      mutationBuilder.set("is_allignment_fill").to(prescriptionFillObject.getString("IS_ALLIGNMENT_FILL"));
     }
-    // if (prescriptionFillObject.has("FILL_SUB_STATUS")) {
-    //
-    // mutationBuilder.set("fill_sub_status").to(prescriptionFillObject.getLong("FILL_SUB_STATUS"));
-    // }
-    // if (prescriptionFillObject.has("ACTION_TIME")) {
-    //   Date date = formatter.parse(prescriptionFillObject.getString("ACTION_TIME"));
-    //   mutationBuilder.set("action_time").to(convertTimestamp(date));
-    // }
+    if (prescriptionFillObject.has("FILL_SUB_STATUS")) {
+      mutationBuilder.set("fill_sub_status").to(prescriptionFillObject.getLong("FILL_SUB_STATUS"));
+    }
+    if (prescriptionFillObject.has("ACTION_TIME") && !prescriptionFillObject.isNull("ACTION_TIME")) {
+      // "yyyy-mm-dd hh:mm:ss" date convert string to
+      Date date = formatter.parse(prescriptionFillObject.getString("ACTION_TIME"));
+      mutationBuilder.set("action_time").to(convertTimestamp(date));
+    }
 
     return mutationBuilder;
   }
