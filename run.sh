@@ -12,7 +12,7 @@ mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner
                  --unboundedReaderMaxReadTimeMs=1000 \
                  --enableStreamingEngine \
                  --workerMachineType=n2d-highcpu-4 \
-                 --subscriptionsName=projects/ggspandf/subscriptions/tenfilesfull-sub \
+                 --subscriptionsName=projects/ggspandf/subscriptions/tenRXOWNER.RXP_PRESCRIPTION_FILL-sub \
                  --subnetwork=regions/us-east4/subnetworks/private" \
     -Pdataflow-runner
                 
