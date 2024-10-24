@@ -27,7 +27,7 @@ public class JsonToMutation extends DoFn<String, Mutation> {
     Gson gson;
 
     @ProcessElement
-    public void processElement(ProcessContext c) {
+    public void processElement(ProcessContext c) throws JSONException, ParseException {
         String message = c.element();
         JSONObject after = null;
         JSONObject json = null;
