@@ -129,8 +129,8 @@ public class GgTrailToSpannerOneToOne {
     // pTuple
     //     .get(ConvertJsonToAvro.main)
 
-    pColl.apply("Group By Prescription ID", GroupByKey.create())
-    .apply(null);
+    // pColl.apply("Group By Prescription ID", GroupByKey.create())
+    // .apply(null);
 
 
     pColl
