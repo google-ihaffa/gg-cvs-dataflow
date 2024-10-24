@@ -26,6 +26,7 @@ import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.Values;
@@ -127,6 +128,11 @@ public class GgTrailToSpannerOneToOne {
 
     // pTuple
     //     .get(ConvertJsonToAvro.main)
+
+    pColl.apply("Group By Prescription ID", GroupByKey.create())
+    .apply(null);
+
+
     pColl
         .apply(Reshuffle.of())
         .apply("Get Mutation From keys", Values.create())

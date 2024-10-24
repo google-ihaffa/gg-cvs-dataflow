@@ -1,5 +1,15 @@
 package org.apache.beam.DoFn;
 
+import org.apache.beam.examples.pojo.Prescription;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.Element;
+import org.apache.beam.sdk.values.KV;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.eclipsesource.json.JsonObject;
+import com.google.cloud.spanner.Mutation;
+import com.google.cloud.spanner.MutationGroup;
 import com.google.cloud.spanner.Mutation;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -17,85 +27,66 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConvertJsonToAvro extends DoFn<String, KV<Long, Mutation>> {
-  private static final Logger LOG = LoggerFactory.getLogger(JsonToMutation.class);
-  public static final TupleTag<KV<Long, Mutation>> main = new TupleTag<KV<Long, Mutation>>() {};
-  public static final TupleTag<KV<Long, Mutation>> splitPrescriptionTupleTag =
-      new TupleTag<KV<Long, Mutation>>() {};
 
-  private static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-  private Counter fillPrescriptionCounter =
-      Metrics.counter(JsonToMutation.class, "fill_prescription");
-  private Counter parseFail = Metrics.counter(ConvertJsonToAvro.class, "fail_structure");
+import java.util.ArrayList; 
+import java.util.List;
 
-  Gson gson;
+public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, MutationGroup> {
 
-  @Setup
-  public void setup() {
-    gson = new GsonBuilder().setDateFormat("yyyy-mm-dd hh:mm:ss").create();
-  }
+    private static final Logger LOG = LoggerFactory.getLogger(MutationToGroupMutation.class);
 
-  @ProcessElement
-  public void processElement(ProcessContext c) {
-    String message = c.element();
-    try {
-      JSONObject json = new JSONObject(message);
-      String op_type = json.getString("op_type");
-      JSONObject after = null;
-
-      try {
-        after = json.getJSONObject("after");
-      } catch (Exception e) {
-        LOG.info("Parsing issue");
-        parseFail.inc();
-        return;
-      }
-
-      if (after.has("PRESCRIPTION_FILL_ID")) {
-        // fillPrescriptionCounter.inc();
-        Mutation.WriteBuilder firstMutationBuilder = null;
-        Mutation.WriteBuilder secondMutationBuilder = null;
-        long pk = after.getLong("PRESCRIPTION_ID");
-
-        if (op_type.equalsIgnoreCase("I")) {
-          firstMutationBuilder = Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_first_im");
-          // secondMutationBuilder =
-          // Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_second_conc");
-
-        } else if (op_type.equalsIgnoreCase("U")) {
-          firstMutationBuilder = Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_first_im");
-          // secondMutationBuilder =
-          // Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_second_conc");
-        }
-        firstMutationBuilder = fillPrescriptionSplit1MutationBuilder(firstMutationBuilder, after);
-        // secondMutationBuilder = fillPrescriptionSplit2MutationBuilder(secondMutationBuilder,
-        // after);
-
-        c.output(KV.of(pk, firstMutationBuilder.build()));
-        // c.output(KV.of(pk, secondMutationBuilder.build()));
-
-      } else {
-        long pk = after.getLong("PRESCRIPTION_ID");
-        Mutation.WriteBuilder mutationBuilder = null;
-        Prescription prescription = null;
-
-        if (op_type.equalsIgnoreCase("I")) {
-          mutationBuilder = Mutation.newInsertOrUpdateBuilder("prescription_uc1_im");
-        } else if (op_type.equalsIgnoreCase("U")) {
-          mutationBuilder = Mutation.newInsertOrUpdateBuilder("prescription_uc1_im");
-        }
-        prescription = gson.fromJson(after.toString(), Prescription.class);
-        mutationBuilder = prescriptionMutationBuilder(mutationBuilder, prescription);
-        c.output(KV.of(pk, mutationBuilder.build()));
-      }
-
-    } catch (Exception e) {
-      // Handle parsing errors.
-
-      //   LOG.error("Error parsing JSON");
-      LOG.error("original message: " + e.getMessage());
+    private static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private Counter fillPrescriptionCounter =
+        Metrics.counter(JsonToMutation.class, "fill_prescription");
+    private Counter parseFail = Metrics.counter(ConvertJsonToKV.class, "fail_structure");
+  
+    Gson gson;
+  
+    @Setup
+    public void setup() {
+      gson = new GsonBuilder().setDateFormat("yyyy-mm-dd hh:mm:ss").create();
     }
+    
+    @ProcessElement
+  public void processElement(@Element KV<Long, Iterable<String>> element, OutputReceiver<MutationGroup> receiver) {
+
+    List<Mutation> list = new ArrayList<>();
+
+    for(String jsonString : element.getValue()){
+        try {
+            JSONObject json = new JSONObject(jsonString);
+            JSONObject after = null;
+            Mutation.WriteBuilder mutationWriter = null;
+      
+            if (after.has("PRESCRIPTION_FILL_ID")) {
+              // fillPrescriptionCounter.inc();
+              mutationWriter = Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_first_im");
+              // firstMutationBuilder = fillPrescriptionSplit1MutationBuilder(firstMutationBuilder, after);
+              // secondMutationBuilder = fillPrescriptionSplit2MutationBuilder(secondMutationBuilder,
+              // after);
+      
+              // c.output(KV.of(pk, secondMutationBuilder.build()));
+      
+      
+            } else {
+                mutationWriter = Mutation.newInsertOrUpdateBuilder("prescription_uc1_im");
+              // prescription = gson.fromJson(after.toString(), Prescription.class);
+              // mutationBuilder = prescriptionMutationBuilder(mutationBuilder, prescription);
+            //    c.output(KV.of(pk, after.toString()));
+            }
+      
+          } catch (Exception e) {
+            // Handle parsing errors.
+      
+            //   LOG.error("Error parsing JSON");
+            LOG.error("original message: " + e.getMessage());
+          }
+        }
+
+    }
+
   }
+
 
   public JSONObject updateJsonObject(JSONObject before, JSONObject after) {
     for (String key : after.keySet()) {
