@@ -29,10 +29,20 @@ public class JsonToMutation extends DoFn<String, Mutation> {
     @ProcessElement
     public void processElement(ProcessContext c) {
         String message = c.element();
+        JSONObject after = null;
+        JSONObject json = null;
+        String op_type = null;
+
         try {
-            JSONObject json = new JSONObject(message);
-            String op_type = json.getString("op_type");
-            JSONObject after = null;
+            json = new JSONObject(message);
+            op_type = json.getString("op_type");
+            
+        } catch (Exception e) {
+            // Handle parsing errors.
+
+            //   LOG.error("Error parsing JSON");
+            LOG.error("original message: " + e.getMessage());
+        }    
 
             try {
                 after = json.getJSONObject("after");
@@ -88,12 +98,7 @@ public class JsonToMutation extends DoFn<String, Mutation> {
             mutationBuilder = prescriptionMutationBuilder(mutationBuilder, prescription);
             LOG.info("Mutation is " + mutationBuilder.hashCode());
             c.output(mutationBuilder.build());
-        } catch (Exception e) {
-            // Handle parsing errors.
-
-            //   LOG.error("Error parsing JSON");
-            LOG.error("original message: " + e.getMessage());
-        }
+  
     }
 
     public JSONObject updateJsonObject(JSONObject before, JSONObject after) {
