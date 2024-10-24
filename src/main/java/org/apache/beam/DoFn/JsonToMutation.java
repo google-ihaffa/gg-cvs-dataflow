@@ -30,6 +30,7 @@ public class JsonToMutation extends DoFn<String, Mutation> {
     public void processElement(ProcessContext c) {
         String message = c.element();
         try {
+            System.out.println(message);
             JSONObject json = new JSONObject(message);
             String op_type = json.getString("op_type");
             JSONObject after = null;
@@ -92,7 +93,7 @@ public class JsonToMutation extends DoFn<String, Mutation> {
             // Handle parsing errors.
 
             //   LOG.error("Error parsing JSON");
-            LOG.error("original message: " + e.getMessage());
+            LOG.error("original message: " + e.getMessage() + message);
         }
     }
 
@@ -105,16 +106,27 @@ public class JsonToMutation extends DoFn<String, Mutation> {
         return before;
     }
 
+
     public Mutation.WriteBuilder fillPrescriptionSplit1MutationBuilder(
-            Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject)
-            throws JSONException, ParseException {
-        return DynamicSchemaMapping.buildMutationFromMapping(mutationBuilder, prescriptionFillObject,"prescriptionfill_uc2_first");
+        Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject) {
+        try {
+            return DynamicSchemaMapping.buildMutationFromMapping(mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_first");
+        } catch (Exception e) { 
+            // Handle the exception appropriately
+            LOG.error("Error building mutation for prescriptionfill_uc2_first: ", e);
+            return null;
+        }
     }
 
     public Mutation.WriteBuilder fillPrescriptionSplit2MutationBuilder(
-            Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject)
-            throws JSONException, ParseException {
-        return DynamicSchemaMapping.buildMutationFromMapping(mutationBuilder, prescriptionFillObject,"prescriptionfill_uc2_second");
+        Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject) {
+        try {
+            return DynamicSchemaMapping.buildMutationFromMapping(mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_second");
+        } catch (Exception e) { 
+            // Handle the exception appropriately
+            LOG.error("Error building mutation for prescriptionfill_uc2_second: ", e);
+            return null;
+        }
     }
 
 
