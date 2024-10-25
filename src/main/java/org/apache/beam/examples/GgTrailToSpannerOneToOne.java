@@ -127,7 +127,7 @@ public class GgTrailToSpannerOneToOne {
 
     PCollection<MutationGroup> orderedMutations =
         pColl
-            .apply(Window.<KV<Long, String>>into(FixedWindows.of(Duration.standardSeconds(1))))
+            .apply(Window.<KV<Long, String>>into(FixedWindows.of(Duration.standardSeconds(7))))
             .apply("Group By Prescription ID", GroupByKey.create())
             .apply(ParDo.of(new MutationToGroupMutation()));
 
