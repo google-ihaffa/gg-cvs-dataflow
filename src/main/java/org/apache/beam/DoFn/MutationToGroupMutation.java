@@ -1,92 +1,119 @@
 package org.apache.beam.DoFn;
 
-import org.apache.beam.examples.pojo.Prescription;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.DoFn.Element;
-import org.apache.beam.sdk.values.KV;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.eclipsesource.json.JsonObject;
-import com.google.cloud.spanner.Mutation;
-import com.google.cloud.spanner.MutationGroup;
 import com.google.cloud.spanner.Mutation;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.ibm.icu.text.SimpleDateFormat;
 import java.text.ParseException;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.apache.beam.examples.pojo.Prescription;
+import org.apache.beam.sdk.io.gcp.spanner.MutationGroup;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.Element;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.util.DynamicSchemaMapping;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-import java.util.ArrayList; 
-import java.util.List;
-
 public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, MutationGroup> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MutationToGroupMutation.class);
+  private static final Logger LOG = LoggerFactory.getLogger(MutationToGroupMutation.class);
 
-    private static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private Counter fillPrescriptionCounter =
-        Metrics.counter(JsonToMutation.class, "fill_prescription");
-    private Counter parseFail = Metrics.counter(ConvertJsonToKV.class, "fail_structure");
-  
-    Gson gson;
-  
-    @Setup
-    public void setup() {
-      gson = new GsonBuilder().setDateFormat("yyyy-mm-dd hh:mm:ss").create();
-    }
-    
-    @ProcessElement
-  public void processElement(@Element KV<Long, Iterable<String>> element, OutputReceiver<MutationGroup> receiver) {
+  private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private Counter fillPrescriptionCounter =
+      Metrics.counter(JsonToMutation.class, "fill_prescription");
+  private Counter parseFail = Metrics.counter(MutationToGroupMutation.class, "fail_structure");
 
-    List<Mutation> list = new ArrayList<>();
+  Gson gson;
 
-    for(String jsonString : element.getValue()){
-        try {
-            JSONObject json = new JSONObject(jsonString);
-            JSONObject after = null;
-            Mutation.WriteBuilder mutationWriter = null;
-      
-            if (after.has("PRESCRIPTION_FILL_ID")) {
-              // fillPrescriptionCounter.inc();
-              mutationWriter = Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_first_im");
-              // firstMutationBuilder = fillPrescriptionSplit1MutationBuilder(firstMutationBuilder, after);
-              // secondMutationBuilder = fillPrescriptionSplit2MutationBuilder(secondMutationBuilder,
-              // after);
-      
-              // c.output(KV.of(pk, secondMutationBuilder.build()));
-      
-      
-            } else {
-                mutationWriter = Mutation.newInsertOrUpdateBuilder("prescription_uc1_im");
-              // prescription = gson.fromJson(after.toString(), Prescription.class);
-              // mutationBuilder = prescriptionMutationBuilder(mutationBuilder, prescription);
-            //    c.output(KV.of(pk, after.toString()));
-            }
-      
-          } catch (Exception e) {
-            // Handle parsing errors.
-      
-            //   LOG.error("Error parsing JSON");
-            LOG.error("original message: " + e.getMessage());
-          }
-        }
-
-    }
-
+  @Setup
+  public void setup() {
+    gson = new GsonBuilder().setDateFormat("yyyy-mm-dd hh:mm:ss").create();
   }
 
+  @ProcessElement
+  public void processElement(
+      @Element KV<Long, Iterable<String>> element, OutputReceiver<MutationGroup> receiver)
+      throws JSONException, ParseException {
+
+    List<JSONObject> sortedList = new ArrayList<>();
+
+    // Insert to list so as jsonObject can be order by LAST_UPDATED_DATE
+    for (String jsonString : element.getValue()) {
+      try {
+        JSONObject json = new JSONObject(jsonString);
+        sortedList.add(json);
+      } catch (Exception e) {
+        LOG.error("Fails to parse JSON to JSON Object: " + e.getMessage());
+        return;
+      }
+    }
+
+    Collections.sort(
+        sortedList,
+        (jsonObj1, jsonObj2) -> {
+          String updateTimeKey = "LAST_UPDATED_DATE";
+          com.google.cloud.Timestamp timestamp1 = null;
+          com.google.cloud.Timestamp timestamp2 = null;
+
+          // There are some records missing LAST_UPDATED_DATE which causing issue for ordering
+          try {
+            String dateString = jsonObj1.getString("LAST_UPDATED_DATE");
+            timestamp1 = DynamicSchemaMapping.convertTimestamp(dateString);
+          } catch (JSONException e) {
+            // TODO Auto-generated catch block
+            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " + e.getMessage());
+            LOG.error("Original json message: " + jsonObj1);
+            timestamp1 = com.google.cloud.Timestamp.MIN_VALUE;
+          }
+          try {
+            String dateString = jsonObj2.getString("LAST_UPDATED_DATE");
+            timestamp2 = DynamicSchemaMapping.convertTimestamp(dateString);
+          } catch (JSONException e) {
+            // TODO Auto-generated catch block
+            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " + e.getMessage());
+            LOG.error("Original json message: " + jsonObj1);
+            timestamp2 = com.google.cloud.Timestamp.MIN_VALUE;
+          }
+          return timestamp1.compareTo(timestamp2);
+        });
+
+    List<Mutation> mutationList = new ArrayList<>();
+    Mutation primary = null;
+
+    for (JSONObject jsonObject : sortedList) {
+      if (jsonObject.has("PRESCRIPTION_FILL_ID")) {
+        // fillPrescriptionCounter.inc();
+        Mutation.WriteBuilder mutationWriter =
+            Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc2_first_im");
+        mutationWriter = fillPrescriptionSplit1MutationBuilder(mutationWriter, jsonObject);
+        primary = mutationWriter.build();
+        mutationList.add(primary);
+        // secondMutationBuilder = fillPrescriptionSplit2MutationBuilder(secondMutationBuilder,
+        // after);
+
+        // c.output(KV.of(pk, secondMutationBuilder.build()));
+
+      } else {
+        Mutation.WriteBuilder mutationWriter =
+            Mutation.newInsertOrUpdateBuilder("prescription_uc1_im");
+        mutationWriter = prescriptionMutationBuilder(mutationWriter, jsonObject);
+        primary = mutationWriter.build();
+        mutationList.add(primary);
+
+        // prescription = gson.fromJson(after.toString(), Prescription.class);
+        // mutationBuilder = prescriptionMutationBuilder(mutationBuilder, prescription);
+        //    c.output(KV.of(pk, after.toString()));
+      }
+      receiver.output(MutationGroup.create(primary, mutationList));
+    }
+  }
 
   public JSONObject updateJsonObject(JSONObject before, JSONObject after) {
     for (String key : after.keySet()) {
@@ -95,12 +122,6 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
       }
     }
     return before;
-  }
-
-  public com.google.cloud.Timestamp convertTimestamp(Date date) {
-    if (date == null) return null;
-
-    return com.google.cloud.Timestamp.of(date);
   }
 
   public Mutation.WriteBuilder fillPrescriptionSplit1MutationBuilder(
@@ -135,8 +156,11 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
     }
     if (prescriptionFillObject.has("LAST_UPDATED_DATE")
         && prescriptionFillObject.get("LAST_UPDATED_DATE") != null) {
-      Date date = formatter.parse(prescriptionFillObject.getString("LAST_UPDATED_DATE"));
-      mutationBuilder.set("last_updated_date").to(convertTimestamp(date));
+      String dateString = prescriptionFillObject.getString("LAST_UPDATED_DATE");
+
+      mutationBuilder
+          .set("last_updated_date")
+          .to(DynamicSchemaMapping.convertTimestamp(dateString));
     }
     if (prescriptionFillObject.has("LAST_UPDATED_BY")
         && prescriptionFillObject.get("LAST_UPDATED_BY") != null) {
@@ -144,7 +168,8 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
           .set("last_updated_by")
           .to(prescriptionFillObject.getString("LAST_UPDATED_BY"));
     }
-    // if (!prescriptionFillObject.isNull("FILL_VERSION") && prescriptionFillObject.has("FILL_VERSION")) {
+    // if (!prescriptionFillObject.isNull("FILL_VERSION") &&
+    // prescriptionFillObject.has("FILL_VERSION")) {
     //   mutationBuilder.set("fill_version").to(prescriptionFillObject.getLong("FILL_VERSION"));
     // }
     // if (prescriptionFillObject.has("IS_ALLIGNMENT_FILL") &&
@@ -187,8 +212,10 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
 
     if (prescriptionFillObject.has("LAST_UPDATED_DATE")
         && prescriptionFillObject.get("LAST_UPDATED_DATE") != null) {
-      Date date = formatter.parse(prescriptionFillObject.getString("LAST_UPDATED_DATE"));
-      mutationBuilder.set("last_updated_date").to(convertTimestamp(date));
+      String dateString = prescriptionFillObject.getString("LAST_UPDATED_DATE");
+      mutationBuilder
+          .set("last_updated_date")
+          .to(DynamicSchemaMapping.convertTimestamp(dateString));
     }
     if (prescriptionFillObject.has("LAST_UPDATED_BY")
         && prescriptionFillObject.get("LAST_UPDATED_BY") != null) {
@@ -198,6 +225,41 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
     }
 
     // TODO: Fill it with PRESCRIPTIONFILL_UC2_SECOND file
+
+    return mutationBuilder;
+  }
+
+  public Mutation.WriteBuilder prescriptionMutationBuilder(
+      Mutation.WriteBuilder mutationBuilder, JSONObject jsonObject) {
+    if (jsonObject.has("PRESCRIPTION_FILL_ID") && jsonObject.get("PRESCRIPTION_FILL_ID") != null) {
+      mutationBuilder.set("prescription_fill_id").to(jsonObject.getLong("PRESCRIPTION_FILL_ID"));
+    }
+    if (jsonObject.has("PATIENT_ID") && jsonObject.get("PATIENT_ID") != null) {
+      mutationBuilder.set("patient_id").to(jsonObject.getLong("PATIENT_ID"));
+    }
+    if (jsonObject.has("PRESCRIPTION_ID") && jsonObject.get("PRESCRIPTION_ID") != null) {
+      mutationBuilder.set("prescription_id").to(jsonObject.getLong("PRESCRIPTION_ID"));
+    }
+
+    // if (jsonObject.has("ACQUIRED_ID") && jsonObject.get("ACQUIRED_ID") != null) {
+    //   mutationBuilder.set("acquired_id").to(jsonObject.getLong("ACQUIRED_ID"));
+    // }
+    if (jsonObject.has("LAST_UPDATED_BY") && jsonObject.get("LAST_UPDATED_BY") != null) {
+      mutationBuilder.set("last_updated_by").to(jsonObject.getString("LAST_UPDATED_BY"));
+    }
+    if (jsonObject.has("LAST_UPDATED_DATE") && jsonObject.get("LAST_UPDATED_DATE") != null) {
+      String dateString = jsonObject.getString("LAST_UPDATED_DATE");
+      mutationBuilder
+          .set("last_updated_date")
+          .to(DynamicSchemaMapping.convertTimestamp(dateString));
+    }
+    // if (jsonObject.has("HC_RESCAN_FLAG") && jsonObject.get("HC_RESCAN_FLAG") != null) {
+    //   mutationBuilder.set("hc_rescan_flag").to(jsonObject.getString("HC_RESCAN_FLAG"));
+    // }
+    // if (jsonObject.has("PROHIBITED_IND") && jsonObject.get("PROHIBITED_IND") != null) {
+    //   mutationBuilder.set("prohibited_ind").to(jsonObject.getString("PROHIBITED_IND"));
+    // }
+    // ... (apply the same pattern for all other fields)
 
     return mutationBuilder;
   }
@@ -214,7 +276,7 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
         .set("last_updated_by")
         .to(prescription.getLastUpdatedBy())
         .set("last_updated_date")
-        .to(convertTimestamp(prescription.getLastUpdatedDate()))
+        .to(com.google.cloud.Timestamp.of(prescription.getLastUpdatedDate()))
         // .set("hc_rescan_flag")
         // .to(prescription.getHcRescanFlag())
         // .set("prohibited_ind")
