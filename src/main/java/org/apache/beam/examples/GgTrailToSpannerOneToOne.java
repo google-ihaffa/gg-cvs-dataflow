@@ -136,7 +136,8 @@ public class GgTrailToSpannerOneToOne {
         SpannerIO.write()
             .withProjectId("ggspandf")
             .withInstanceId("spanner1")
-            .withDatabaseId("rxc-span")
+            // .withDatabaseId("rxc-span")
+            .withDatabaseId("rxc")
             .grouped());
 
     p.run();

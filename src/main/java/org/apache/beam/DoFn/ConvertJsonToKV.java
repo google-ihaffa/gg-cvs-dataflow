@@ -29,18 +29,28 @@ public class ConvertJsonToKV extends DoFn<String, KV<Long, String>> {
     String message = c.element();
     try {
       JSONObject json = new JSONObject(message);
-      json.get("CSN");
       JSONObject after = json.getJSONObject("after");
       long pk = after.getLong("PRESCRIPTION_ID");
+      if (json.getString("op_type").equalsIgnoreCase("I")) {
+        c.output(KV.of(pk, after.toString()));
+        return;
+      }
+
+      JSONObject before = json.getJSONObject("before");
+
+      for (String key : after.keySet()) {
+        before.put(key, after.get(key));
+      }
+
       if (pk == 14783909288L
           && json.getString("table").equalsIgnoreCase("RXOWNER.RXP_PRESCRIPTION_FILL")) {
         LOG.info("before \n" + json.getJSONObject("before"));
         LOG.info("after \n" + after);
       }
 
-      c.output(KV.of(pk, after.toString()));
+      c.output(KV.of(pk, before.toString()));
     } catch (Exception e) {
-      LOG.error("Parsing issue on ConvertJsonToKV");
+      LOG.error("Parsing issue on ConvertJsonToKV " + e.getMessage());
       parseFail.inc();
       return;
     }
