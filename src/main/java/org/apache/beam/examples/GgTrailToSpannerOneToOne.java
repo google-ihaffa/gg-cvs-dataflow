@@ -27,6 +27,7 @@ import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -127,7 +128,7 @@ public class GgTrailToSpannerOneToOne {
 
     PCollection<MutationGroup> orderedMutations =
         pColl
-            .apply(Window.<KV<Long, String>>into(FixedWindows.of(Duration.standardSeconds(7))))
+            .apply(Window.<KV<Long, String>>into(FixedWindows.of(Duration.standardSeconds(1))))
             .apply("Group By Prescription ID", GroupByKey.create())
             .apply(ParDo.of(new MutationToGroupMutation()));
 
@@ -136,7 +137,8 @@ public class GgTrailToSpannerOneToOne {
         SpannerIO.write()
             .withProjectId("ggspandf")
             .withInstanceId("spanner1")
-            .withDatabaseId("rxc-span")
+            // .withDatabaseId("rxc-span")
+            .withDatabaseId("rxc")
             .grouped());
 
     p.run();
