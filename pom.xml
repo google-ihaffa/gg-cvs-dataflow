@@ -36,7 +36,7 @@
     <jackson.version>2.15.4</jackson.version>
     <joda.version>2.10.14</joda.version>
     <junit.version>4.13.1</junit.version>
-    <kafka.version>3.7.0</kafka.version>
+    <kafka.version>2.4.1</kafka.version>
     <libraries-bom.version>26.39.0</libraries-bom.version>
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
     <maven-exec-plugin.version>1.6.0</maven-exec-plugin.version>
