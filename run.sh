@@ -20,3 +20,7 @@ mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner
 # mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner \
 #     -Dexec.args=" --subscriptionsName=projects/ggspandf/subscriptions/ihaffa-test-sub" \
 #     -Pdirect-runner
+
+
+# update pid: 1, value: 1
+# update pid: 1, value: 10

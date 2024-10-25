@@ -26,12 +26,12 @@ public class JsonToMutation extends DoFn<String, Mutation> {
 
   Gson gson;
 
-  @ProcessElement
-  public void processElement(ProcessContext c) throws JSONException, ParseException {
-    String message = c.element();
-    JSONObject after = null;
-    JSONObject json = null;
-    String op_type = null;
+    @ProcessElement
+    public void processElement(ProcessContext c) throws JSONException, ParseException {
+        String message = c.element();
+        JSONObject after = null;
+        JSONObject json = null;
+        String op_type = null;
 
     try {
       json = new JSONObject(message);
