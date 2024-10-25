@@ -126,15 +126,15 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
   public Mutation.WriteBuilder fillPrescriptionSplit1MutationBuilder(
       Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject)
       throws JSONException, ParseException {
-        return DynamicSchemaMapping.buildMutationFromMapping(
-      mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_second");
+    return DynamicSchemaMapping.buildMutationFromMapping(
+        mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_second");
   }
 
   public Mutation.WriteBuilder fillPrescriptionSplit2MutationBuilder(
       Mutation.WriteBuilder mutationBuilder, JSONObject prescriptionFillObject)
       throws JSONException, ParseException {
     return DynamicSchemaMapping.buildMutationFromMapping(
-      mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_second");
+        mutationBuilder, prescriptionFillObject, "prescriptionfill_uc2_second");
   }
 
   public Mutation.WriteBuilder prescriptionMutationBuilder(

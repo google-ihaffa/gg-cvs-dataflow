@@ -25,7 +25,7 @@ public class DynamicSchemaMapping {
     spanner = options.getService();
   }
 
-  private synchronized static Map<String, Map<String, String>> getColumnMapping(String tableName) {
+  private static synchronized Map<String, Map<String, String>> getColumnMapping(String tableName) {
     // Ensure this is called only once for the very first time as this method requires to connect to
     // spanner database.
     if (tableSchemaMapping.containsKey(tableName)) {

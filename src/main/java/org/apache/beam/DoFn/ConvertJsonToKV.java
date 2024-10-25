@@ -31,18 +31,17 @@ public class ConvertJsonToKV extends DoFn<String, KV<Long, String>> {
       JSONObject json = new JSONObject(message);
       JSONObject after = json.getJSONObject("after");
       long pk = after.getLong("PRESCRIPTION_ID");
-      if(json.getString("op_type").equalsIgnoreCase("I")){
+      if (json.getString("op_type").equalsIgnoreCase("I")) {
         c.output(KV.of(pk, after.toString()));
-        return ;
+        return;
       }
-
 
       JSONObject before = json.getJSONObject("before");
 
       for (String key : after.keySet()) {
         before.put(key, after.get(key));
       }
-      
+
       if (pk == 14783909288L
           && json.getString("table").equalsIgnoreCase("RXOWNER.RXP_PRESCRIPTION_FILL")) {
         LOG.info("before \n" + json.getJSONObject("before"));
