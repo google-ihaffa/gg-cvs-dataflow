@@ -54,21 +54,25 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
     for (String jsonString : element.getValue()) {
       try {
         JSONObject json = new JSONObject(jsonString);
-        if (json.has("PRESCRIPTION_FILL_ID")) {
-          com.google.cloud.Timestamp timestamp =
-              DynamicSchemaMapping.convertTimestamp(json.getString(updateTimeKey));
-          if (timestamp.compareTo(pres_fill_timestamp) > 0) {
-            pres_fill_timestamp = timestamp;
-            pres_fill_idx = idx;
-          }
-        } else {
-          com.google.cloud.Timestamp timestamp =
-              DynamicSchemaMapping.convertTimestamp(json.getString(updateTimeKey));
-          if (timestamp.compareTo(pres_timestamp) > 0) {
-            pres_fill_timestamp = timestamp;
-            pres_idx = idx;
-          }
-        }
+        /*
+         *  Do not remove these code, These might be needed in case spanner doesnt respect ordering.
+         *  Might need to use logic to only insert latest record instead.
+         */
+        // if (json.has("PRESCRIPTION_FILL_ID")) {
+        //   com.google.cloud.Timestamp timestamp =
+        //       DynamicSchemaMapping.convertTimestamp(json.getString(updateTimeKey));
+        //   if (timestamp.compareTo(pres_fill_timestamp) > 0) {
+        //     pres_fill_timestamp = timestamp;
+        //     pres_fill_idx = idx;
+        //   }
+        // } else {
+        //   com.google.cloud.Timestamp timestamp =
+        //       DynamicSchemaMapping.convertTimestamp(json.getString(updateTimeKey));
+        //   if (timestamp.compareTo(pres_timestamp) > 0) {
+        //     pres_fill_timestamp = timestamp;
+        //     pres_idx = idx;
+        //   }
+        // }
         idx++;
         list.add(json);
       } catch (Exception e) {
@@ -83,7 +87,7 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
 
     /*
      *  Do not remove these code, These might be needed in case spanner doesnt respect ordering.
-     *  Might need to use logic to only insert latest record instead. 
+     *  Might need to use logic to only insert latest record instead.
      */
 
     // if (pres_idx >= 0) {
@@ -108,8 +112,8 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
     //   receiver.output(MutationGroup.create(presFillWriter.build(), mutationList));
     // }
 
-      /*
-     *  The code below sort the for groupMutation to be inserted together. Ensure primary is the latest Object of insertion. 
+    /*
+     *  The code below sort the for groupMutation to be inserted together. Ensure primary is the latest Object of insertion.
      */
 
     Collections.sort(
@@ -122,28 +126,34 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
           try {
             String dateString = jsonObj1.getString("LAST_UPDATED_DATE");
             timestamp1 = DynamicSchemaMapping.convertTimestamp(dateString);
-            if(jsonObj1.getLong("PRESCRIPTION_ID") == 14783909288L &&
-    jsonObj1.has("PRESCRIPTION_FILL")) {
-              LOG.info("LAST UPDATED DATE OF FIRST OBJECT "  + dateString + " converted timestamp is:" + timestamp1);
+            if (jsonObj1.getLong("PRESCRIPTION_ID") == 14783909288L
+                && jsonObj1.has("PRESCRIPTION_FILL")) {
+              LOG.info(
+                  "LAST UPDATED DATE OF FIRST OBJECT "
+                      + dateString
+                      + " converted timestamp is:"
+                      + timestamp1);
             }
           } catch (JSONException e) {
             // TODO Auto-generated catch block
-            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " +
-    e.getMessage());
+            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " + e.getMessage());
             LOG.error("Original json message: " + jsonObj1);
             timestamp1 = com.google.cloud.Timestamp.MIN_VALUE;
           }
           try {
             String dateString = jsonObj2.getString("LAST_UPDATED_DATE");
             timestamp2 = DynamicSchemaMapping.convertTimestamp(dateString);
-            if(jsonObj2.getLong("PRESCRIPTION_ID") == 14783909288L &&
-    jsonObj2.has("PRESCRIPTION_FILL")) {
-              LOG.info("LAST UPDATED DATE OF FIRST OBJECT "  + dateString + " converted timestamp is:" + timestamp2);
+            if (jsonObj2.getLong("PRESCRIPTION_ID") == 14783909288L
+                && jsonObj2.has("PRESCRIPTION_FILL")) {
+              LOG.info(
+                  "LAST UPDATED DATE OF FIRST OBJECT "
+                      + dateString
+                      + " converted timestamp is:"
+                      + timestamp2);
             }
           } catch (JSONException e) {
             // TODO Auto-generated catch block
-            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " +
-    e.getMessage());
+            LOG.error("Unable to parse JSON timestamp in MutationToGroupMethod: " + e.getMessage());
             LOG.error("Original json message: " + jsonObj2);
             timestamp2 = com.google.cloud.Timestamp.MIN_VALUE;
           }
@@ -156,17 +166,18 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
         // fillPrescriptionCounter.inc();
         Mutation.WriteBuilder mutationWriter =
             Mutation.newInsertOrUpdateBuilder("prescriptionfill_uc0_final");
-        mutationWriter = prescriptionMutationBuilder(mutationWriter, jsonObject, "prescriptionfill_uc0_final");
+        mutationWriter =
+            prescriptionMutationBuilder(mutationWriter, jsonObject, "prescriptionfill_uc0_final");
         primary = mutationWriter.build();
         mutationList.add(primary);
 
       } else {
         Mutation.WriteBuilder mutationWriter =
             Mutation.newInsertOrUpdateBuilder("prescription_uc0_final");
-        mutationWriter = prescriptionMutationBuilder(mutationWriter, jsonObject, "prescription_uc0_final");
+        mutationWriter =
+            prescriptionMutationBuilder(mutationWriter, jsonObject, "prescription_uc0_final");
         primary = mutationWriter.build();
         mutationList.add(primary);
-
       }
     }
     receiver.output(MutationGroup.create(primary, mutationList));
@@ -196,7 +207,8 @@ public class MutationToGroupMutation extends DoFn<KV<Long, Iterable<String>>, Mu
   // }
 
   public Mutation.WriteBuilder prescriptionMutationBuilder(
-      Mutation.WriteBuilder mutationBuilder, JSONObject jsonObject, String table_name)  throws JSONException, ParseException {
+      Mutation.WriteBuilder mutationBuilder, JSONObject jsonObject, String table_name)
+      throws JSONException, ParseException {
 
     return DynamicSchemaMapping.buildMutationFromMapping(mutationBuilder, jsonObject, table_name);
   }
