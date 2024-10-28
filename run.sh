@@ -16,8 +16,7 @@ mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner
                  --subnetwork=regions/us-east4/subnetworks/private" \
     -Pdataflow-runner
                 
-# projects/ggspandf/subscriptions/RXOWNER.RXP_PRESCRIPTION_FILL-sub
-# mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner \
+# mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpannerOneToOne \
 #     -Dexec.args=" --subscriptionsName=projects/ggspandf/subscriptions/ihaffa-test-sub" \
 #     -Pdirect-runner
 
