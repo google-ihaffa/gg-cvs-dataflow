@@ -29,7 +29,8 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -127,7 +128,11 @@ public class GgTrailToSpannerOneToOne {
 
     PCollection<MutationGroup> orderedMutations =
         pColl
-            .apply(Window.<KV<Long, String>>into(FixedWindows.of(Duration.standardSeconds(3))))
+            .apply(
+                Window.<KV<Long, String>>into(Sessions.withGapDuration(Duration.standardMinutes(5)))
+                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .withAllowedLateness(Duration.standardSeconds(0))
+                    .discardingFiredPanes())
             .apply("Group By Prescription ID", GroupByKey.create())
             .apply(ParDo.of(new MutationToGroupMutation()));
 

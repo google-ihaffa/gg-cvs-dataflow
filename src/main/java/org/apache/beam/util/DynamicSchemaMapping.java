@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import org.joda.time.DateTime;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,9 @@ public class DynamicSchemaMapping {
   private static final DateTimeFormatter formatter =
       DateTimeFormatter.ofPattern(
           "yyyy-MM-dd HH:mm:ss"); // Changed to thread-safe DateTimeFormatter
+
+  private static final org.joda.time.format.DateTimeFormatter jodaDateTimeFormatter =
+      org.joda.time.format.DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
 
   static {
     SpannerOptions options = SpannerOptions.newBuilder().build();
@@ -85,6 +89,13 @@ public class DynamicSchemaMapping {
 
     return com.google.cloud.Timestamp.ofTimeSecondsAndNanos(
         instant.getEpochSecond(), instant.getNano());
+  }
+
+  public static org.joda.time.Instant dateToJodaInstant(String date) {
+    // Parse the string into a LocalDateTime object
+    DateTime dateTime = jodaDateTimeFormatter.parseDateTime(date);
+
+    return dateTime.toInstant();
   }
 
   public static Mutation.WriteBuilder buildMutationFromMapping(

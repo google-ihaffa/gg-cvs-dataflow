@@ -42,10 +42,10 @@ public class ConvertJsonToKV extends DoFn<String, KV<Long, String>> {
         before.put(key, after.get(key));
       }
 
-      if (pk == 14783909288L
-          && json.getString("table").equalsIgnoreCase("RXOWNER.RXP_PRESCRIPTION_FILL")) {
+      if (pk == 14457820047L || pk == 14457860479L) {
         LOG.info("before \n" + json.getJSONObject("before"));
         LOG.info("after \n" + after);
+        LOG.info("pid: " + pk);
       }
 
       c.output(KV.of(pk, before.toString()));

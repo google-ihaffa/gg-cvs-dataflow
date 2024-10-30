@@ -8,11 +8,11 @@ mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.GgTrailToSpanner
                  --maxNumWorkers=15 \
                  --numWorkers=4 \
                  --experiments=num_pubsub_keys=5000 \
-                 --dataflowServiceOptions=enable_streaming_engine_resource_based_billing \
                  --unboundedReaderMaxReadTimeMs=1000 \
-                 --enableStreamingEngine \
                  --workerMachineType=n2d-highcpu-4 \
-                 --subscriptionsName=projects/ggspandf/subscriptions/tenfilesfull-sub \
+                 --dataflowServiceOptions=enable_streaming_engine_resource_based_billing \
+                 --enableStreamingEngine \
+                 --subscriptionsName=projects/ggspandf/subscriptions/order-by-time-or-pos-sub \
                  --subnetwork=regions/us-east4/subnetworks/private" \
     -Pdataflow-runner
                 
